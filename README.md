@@ -8,9 +8,9 @@ View the HTML Documentation:
 
 https://rabbibotton.github.io/clog/clog-manual.html
 
-Join the CLOG Maillist for latest updates:
+View a short video on reddit about CLOG Builder
 
-https://mailman.common-lisp.net/listinfo/clog-devel
+https://www.reddit.com/r/lisp/comments/sd9wf1/clog_builder_cl_web_3_awesome_lang_awesome_tool/
 
 ---
 
@@ -23,12 +23,13 @@ frameworks and website frameworks. The CLOG package starts up the
 connectivity to the browser or other websocket client (often a browser
 embedded in a native template application.)
 
-STATUS: CLOG is complete and all work is on higher order additions, 
-such as full desktop over the web, database tools,etc. See below for
-some enhacements being worked on. CLOG is actually based on GNOGA, a
-framework I wrote for Ada in 2013 and used in commercial production
-code for the last 8+ years, i.e. the techiniques CLOG uses are solid
-and proven.
+[CLOG - Technical Overview and Purpose](CONCEPT.md)
+
+STATUS: CLOG 1.1 and CLOG Builder 1.0 released.
+
+CLOG is actually based on GNOGA, a framework I wrote for Ada in 2013
+and used in commercial production code for the last 9+ years, i.e. the
+techiniques CLOG uses are solid and proven.
 
 CLOG is being actively extended daily. Check the github discussion
 boards for the latest.
@@ -51,14 +52,13 @@ an active soft realtime connection. For most CLOG applications all
 programming logic, events and decisions are done on the server
 which can be local, or remote over the web.
 
-CLOG is developed on an M1 MacBook with ECL and SBCL,
-it is tested fairly regulary with SBCL on Linux, Windows and
-Intel MacBook. It should in theory work on any system with
-Quicklisp and CLACK.
+CLOG is developed with ECL and SBCL, it is tested fairly regulary on
+ Linux, Windows, Rasberry Pi (running Ubuntu), M1 and Intel Mac. It
+ should in theory work on any system with Quicklisp and CLACK.
 
-CLOG is in Quicklisp (ql:quickload :clog), but you may want to live on the bleeding edge
-and use Ultralisp or clone the github repo into your
-~/common-lisp directory (or other quicklisp/asdf findable
+CLOG is in QuickLisp (ql:quickload :clog), but you likely want to live
+on the bleeding edge and use UltraLisp or clone the github repo into
+your ~/common-lisp directory (or other quicklisp/asdf findable
 directory):
 
 ```
@@ -82,8 +82,8 @@ CL-USER> (ql:quickload :clog)
 CL-USER> (clog:run-tutorial 1)
 ```
 
-Tip for Windows WSL linux user. Create a symbolic link from wslview to xdg-open
-in /usr/local/bin so that run-tutorial uses the windows browser.
+Tip for Windows WSL linux user. Install "sudo apt install xdg-utils" to
+install xdg-open so that run-tutorial uses the windows browser.
 
 To see where the source, tutorial and demo files are:
 
@@ -103,6 +103,13 @@ The clog-db-admin tool can be run with:
 ```
 CL-USER> (ql:quickload :clog/tools)
 CL-USER> (clog-tools:clog-db-admin)
+```
+
+The CLOG Builder tool can be run with:
+
+```
+CL-USER> (ql:quickload :clog/tools)
+CL-USER> (clog-tools:clog-builder)
 ```
 
 You can also open a "clog-repl" window in your browser to play
@@ -128,6 +135,8 @@ Work your way through the tutorials. You will see how quick and easy it is
 to be a CLOGer.
 
 
+![Image of clog-builder](https://rabbibotton.github.io/images/clog-builder.png)
+![Image of clog-builder-web](https://rabbibotton.github.io/images/cb-web.png)
 ![Image of demo1](https://rabbibotton.github.io/images/clog-demo1.png)
 ![Image of demo2](https://rabbibotton.github.io/images/clog-demo2.png)
 ![Image of demo3](https://rabbibotton.github.io/images/clog-demo3.png)
@@ -187,10 +196,16 @@ Here is a sample CLOG app:
   (open-browser))
 ```
 
-Work in progress:
-(Add an enhancement request if you want to see a specific feature not yet covered.)
+CLOG Builder Tutorials
 
-Tutorial Summary
+1. Chat App
+    https://www.reddit.com/r/lisp/comments/sj1tv5/clog_builder_tutorial_1_a_chat_app_from_start_to/
+2. Building a Web Page
+    https://www.reddit.com/r/lisp/comments/sn8j77/clog_builder_tutorial_2_building_a_web_page/
+3. Importing HTML in to Builder, Adding Pages and Hand Coding
+    https://www.reddit.com/r/lisp/comments/snvv0w/clog_builder_tutorial_3_importing_html_adding/
+
+CLOG Tutorial Summary
 
 - [01-tutorial.lisp](tutorial/01-tutorial.lisp) - Hello World
 - [02-tutorial.lisp](tutorial/02-tutorial.lisp) - Closures in CLOG
@@ -219,6 +234,8 @@ Tutorial Summary
 - [25-tutorial.lisp](tutorial/25-tutorial.lisp) - A "local" web app using CLOG WEB
 - [26-tutorial.lisp](tutorial/26-tutorial.lisp) - A web page and form with CLOG WEB
 - [27-tutorial.lisp](tutorial/27-tutorial.lisp) - Panel Box Layouts
+- [28-tutorial/](tutorial/28-tutorial) - CLOG Builder Hello - A minimalist CLOG Builder project
+- [29-tutorial.lisp](tutorial/29-tutorial.lisp) - Presentations - linking lisp objects to clog objects
 
 Demo Summary
 
@@ -231,10 +248,7 @@ Demo Summary
 Tool Summary
 
 - clog-db-admin - SQLite3 admin tool
-
-Template Summary
-
-clog-gui-template.lisp - Basic CLOG-GUI app
+- clog-builder  - Rapid visual interactive development for Web and GUIs
 
 High Order Extensions to CLOG
 
@@ -256,5 +270,10 @@ High Order Extensions to CLOG
   - Menus
   - Alerts
   - Forms
+
+- clog-panels - Quick application layouts
+
+- clog-presentations - bi-directional linking of Lisp Objects and CLOG
+                       Objects
 
 (See FUTURE.md for future plans)

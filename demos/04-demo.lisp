@@ -1,10 +1,10 @@
 ;;;; Demo 4 - CMS Website
 
-(defpackage #:clog-user
+(defpackage #:clog-demo-4
   (:use #:cl #:clog #:clog-web)
   (:export start-demo))
 
-(in-package :clog-user)
+(in-package :clog-demo-4)
 
 ;; Site Configuration
 (defparameter side-panel-size 200 "Size of menu")
@@ -59,7 +59,7 @@
   
 (defun new-content (app)
   (setf (inner-html (main app)) "")
-  (let ((new-page  (create-form-element (main app) :text))
+  (let ((new-page  (create-form-element (main app) :text :value "New Title"))
 	(tmp       (create-br (main app)))
 	(text-area (create-text-area (main app) :rows 10 :columns 40)))
     (declare (ignore tmp))

@@ -6,12 +6,16 @@
 ;;;; clog-helpers.lisp                                                     ;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-;;; Various helpers for learning CLOG
+;;; Various helpers for CLOG
 
 (cl:in-package :clog)
 
 (defpackage #:clog-user
   (:use #:cl #:clog))
+
+(defpackage #:clog-tools
+  (:use #:cl #:clog #:clog-gui #:clog-web)
+  (:export :clog-builder :clog-db-admin))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Implementation - CLOG Utilities
@@ -44,7 +48,9 @@
 (defun run-tutorial (num)
   "Run tutorial NUM"
   (load-tutorial num)
-  (funcall (symbol-function (find-symbol "START-TUTORIAL" "CLOG-USER"))))
+  (funcall (symbol-function (find-symbol
+			     "START-TUTORIAL"
+			     (format nil "CLOG-TUT-~A" num)))))
 
 ;;;;;;;;;;;;;;;;;;;
 ;; load-tutorial ;;
@@ -64,7 +70,9 @@
 (defun run-demo (num)
   "Run demo NUM"
   (load-demo num)
-  (funcall (symbol-function (find-symbol "START-DEMO" "CLOG-USER"))))
+  (funcall (symbol-function (find-symbol
+			     "START-DEMO"
+			     (format nil "CLOG-DEMO-~A" num)))))
 
 ;;;;;;;;;;;;;;;
 ;; load-demo ;;
@@ -109,48 +117,3 @@ clog-user:*body* to last window openned to /repl."
 	 :if-does-not-exist if-does-not-exist
 	 :external-format external-format)
     t))
-
-;;;;;;;;;;;;;;;;
-;; load-world ;;
-;;;;;;;;;;;;;;;;
-
-(defun load-world ()
-  (load "source/clog.lisp")
-  (load "source/clog-docs.lisp")
-  (load "source/clog-base.lisp")
-  (load "source/clog-element.lisp")
-  (load "source/clog-element-common.lisp")
-  (load "source/clog-canvas.lisp")
-  (load "source/clog-form.lisp")
-  (load "source/clog-window.lisp")
-  (load "source/clog-navigator.lisp")
-  (load "source/clog-document.lisp")
-  (load "source/clog-location.lisp")
-  (load "source/clog-system.lisp")
-  (load "source/clog-utilities.lisp")
-  (load "source/clog-body.lisp")
-  (load "source/clog-helpers.lisp"))
-
-;;;;;;;;;;;;;;;;;;;;
-;; make-mark-down ;;
-;;;;;;;;;;;;;;;;;;;;
-
-(defun make-mark-down ()
-  (load-world)
-  (describe clog:@CLOG-MANUAL))
-
-;;;;;;;;;;;;;;;
-;; make-html ;;
-;;;;;;;;;;;;;;;
-
-(defun make-html ()
-  (load-world)
-  (mgl-pax:update-asdf-system-html-docs clog:@CLOG-MANUAL :clog))
-
-;;;;;;;;;;;;;;;;
-;; make-world ;;
-;;;;;;;;;;;;;;;;
-
-(defun make-world ()
-  (make-html)
-  (asdf:compile-system :clog))

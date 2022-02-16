@@ -1,8 +1,8 @@
-(defpackage #:clog-user
+(defpackage #:clog-tut-18
   (:use #:cl #:clog)
   (:export start-tutorial))
 
-(in-package :clog-user)
+(in-package :clog-tut-18)
 
 ;; Demonstrate drag and drop
 (defun on-new-window (body)
@@ -41,7 +41,7 @@
     (setf (draggablep object) t)
     ;; 2 the on-drag-start event is set
     (set-on-drag-start object (lambda (obj)(declare (ignore obj))()) :drag-data "some data")
-    ;; 4 the target on-drag-over event is sett
+    ;; 4 the target on-drag-over event is set
     (set-on-drag-over target1 (lambda (obj)(declare (ignore obj))()))
     ;; 5 the target on-drop event is set
     (set-on-drop target1 (lambda (obj data)
@@ -57,5 +57,5 @@
 
 (defun start-tutorial ()
   "Start tutorial."
-  (initialize #'on-new-window)
+  (initialize 'on-new-window)
   (open-browser))

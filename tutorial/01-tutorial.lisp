@@ -1,8 +1,8 @@
-(defpackage #:clog-user               ; Setup a package for our work to exist in
+(defpackage #:clog-tut-1              ; Setup a package for our work to exist in
   (:use #:cl #:clog)                  ; Use the Common Lisp language and CLOG
   (:export start-tutorial))           ; Export as public the start-tutorial function
 
-(in-package :clog-user)               ; Tell the "reader" we are in the clog-user package
+(in-package :clog-tut-1)              ; Tell the "reader" we are in the clog-tut-1 package
 
 
 ;; Define our CLOG application
@@ -40,8 +40,13 @@
   (initialize #'on-new-window)
   ;; Set the function on-new-window to execute
   ;; everytime a browser connection to our app.
-  ;; #' tells common lisp to pass the function
-  ;; to intialize and not to execute it.
+  ;; #' tells common lisp to pass the function.
+  ;; If we pass the symbol 'on-new-window it
+  ;; it will look each time for the function
+  ;; represented by our symbol. This is generally
+  ;; prefered in development as then we can
+  ;; recompile our events while running ie. M-C-x
+  ;; in emacs.
 
   ;; Open a browser to http://127.0.0.1:8080 - the default for CLOG apps
   (open-browser))

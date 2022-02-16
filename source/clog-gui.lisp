@@ -1,6 +1,6 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; CLOG - The Common Lisp Omnificent GUI                                 ;;;;
-;;;; (c) 2020-2021 David Botton                                            ;;;;
+;;;; (c) 2020-2022 David Botton                                            ;;;;
 ;;;; License BSD 3 Clause                                                  ;;;;
 ;;;;                                                                       ;;;;
 ;;;; clog-gui.lisp                                                         ;;;;
@@ -97,7 +97,7 @@
     :documentation "The current window at front")
    (windows
     :accessor windows
-    :initform (make-hash-table :test 'equalp)
+    :initform (make-hash-table* :test 'equalp)
     :documentation "Window collection indexed by html-id")
    (last-z
     :accessor last-z
@@ -627,15 +627,14 @@ The on-window-change clog-obj received is the new window"))
 	 (y        (getf data ':screen-y))
 	 (adj-y    (- y (drag-y app)))
 	 (adj-x    (- x (drag-x app))))
-    (when (and (> adj-x 0) (> adj-y (menu-bar-height obj)))
-      (cond ((equalp (in-drag app) "m")
-	     (fire-on-window-move (drag-obj app))
-	     (setf (top (drag-obj app)) (unit :px adj-y))
-	     (setf (left (drag-obj app)) (unit :px adj-x)))
-	    ((equalp (in-drag app) "s")
-	     (fire-on-window-size (drag-obj app))
-	     (setf (height (drag-obj app)) (unit :px adj-y))
-	     (setf (width (drag-obj app)) (unit :px adj-x)))))))
+    (cond ((equalp (in-drag app) "m")
+	   (fire-on-window-move (drag-obj app))
+	   (setf (top (drag-obj app)) (unit :px adj-y))
+	   (setf (left (drag-obj app)) (unit :px adj-x)))
+	  ((equalp (in-drag app) "s")
+	   (fire-on-window-size (drag-obj app))
+	   (setf (height (drag-obj app)) (unit :px adj-y))
+	   (setf (width (drag-obj app)) (unit :px adj-x))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;
 ;; on-gui-drag-stop ;;
@@ -772,30 +771,29 @@ the window will be set to keep-on-top always."))
 				   (when (fire-on-window-can-close win)
 				     (window-close win))))
       (cond (client-movement
-	     (jquery-execute win
+	     (clog::jquery-execute win
 			     (format nil "draggable({handle:'#~A-title-bar'})" html-id))
-	     (jquery-execute win "resizable({handles:'se'})")
+	     (clog::jquery-execute win "resizable({handles:'se'})")
 	     (set-on-pointer-down (win-title win)
 	    			  (lambda (obj data)
 				    (declare (ignore obj) (ignore data))
 	    			    (setf (z-index win) (incf (last-z app)))
 	    			    (fire-on-window-change win app)))
-	     (set-on-event win "dragstart"
-			   (lambda (obj)
-			     (declare (ignore obj))
-			     (fire-on-window-move win)))
-	     (set-on-event win "dragstop"
-			   (lambda (obj)
-			     (declare (ignore obj))
-			     (fire-on-window-move-done win)))
-	     (set-on-event win "resizestart"
-			   (lambda (obj)
-			     (declare (ignore obj))
-			     (fire-on-window-size win)))
-	     (set-on-event win "resizestop"
-			   (lambda (obj)
-			     (declare (ignore obj))
-			     (fire-on-window-size-done win))))
+	     (clog::set-on-event win "dragstart"
+				 (lambda (obj)
+				   (declare (ignore obj))
+				   (fire-on-window-move win)))
+	     (clog::set-on-event win "dragstop"
+				 (lambda (obj)
+				   (fire-on-window-move-done win)))
+	     (clog::set-on-event win "resizestart"
+				 (lambda (obj)
+				   (declare (ignore obj))
+				   (fire-on-window-size win)))
+	     (clog::set-on-event win "resizestop"
+				 (lambda (obj)
+				   (declare (ignore obj))
+				   (fire-on-window-size-done win))))
 	    (t
 	     (set-on-pointer-down
 	      (win-title win) 'on-gui-drag-down :capture-pointer t)
@@ -1221,12 +1219,19 @@ interactions. Use window-end-modal to undo."))
   (setf (on-window-move-done obj) handler))
 
 (defmethod fire-on-window-move-done ((obj clog-gui-window))
+  (if (< (parse-integer (top obj) :junk-allowed t)
+	 (menu-bar-height obj))
+      (setf (top obj) (unit "px" (menu-bar-height obj))))
   (when (on-window-move-done obj)
     (funcall (on-window-move-done obj) obj)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Implementation - Dialog Boxes
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;;;;;;;;;;;;;;;;;
+;; alert-toast ;;
+;;;;;;;;;;;;;;;;;
 
 (defun alert-toast (obj title content &key
 					(color-class "w3-red")
@@ -1257,10 +1262,15 @@ is placed in DOM at top of html body instead of bottom of html body."
     (set-on-click
      (attach-as-child obj (format nil "~A-close" html-id))
      (lambda (obj)
+       (declare (ignore obj))
        (destroy win)))
     (when time-out
       (sleep time-out)
       (destroy win))))
+
+;;;;;;;;;;;;;;;;;;
+;; alert-dialog ;;
+;;;;;;;;;;;;;;;;;;
 
 (defun alert-dialog (obj content &key (modal t)
 				   (title "About")
@@ -1307,8 +1317,15 @@ is placed in DOM at top of html body instead of bottom of html body."
 			       (when modal
 				 (window-end-modal win))))))
 
+;;;;;;;;;;;;;;;;;;
+;; input-dialog ;;
+;;;;;;;;;;;;;;;;;;
+
 (defun input-dialog (obj content on-input &key (modal t)
 					    (title "Input")
+					    (size 20)
+					    (rows 1)
+					    (default-value "")
 					    (left nil) (top nil)
 					    (width 300) (height 200)
 					    (client-movement nil)
@@ -1318,21 +1335,32 @@ Calls on-input with input box contents or nil if canceled."
   (unless html-id
       (setf html-id (clog-connection:generate-id)))
   (let* ((body (connection-data-item obj "clog-body"))
+	 (inp  (if (eql rows 1)
+		   (format nil "<input type='text' id='~A-input' size='~A' value='~A'>"
+			   html-id
+			   size
+			   (escape-string default-value))
+		   (format nil "<textarea id='~A-input' cols='~A' rows='~A'>~A</textarea>"
+			   html-id
+			   size
+			   rows
+			   (escape-string default-value))))
 	 (win  (create-gui-window obj
 				  :title          title
 				  :content        (format nil
 "<div class='w3-panel'>
 <center>~A<br><br>
 <form class='w3-container' onSubmit='return false;'>
-<input type='text' id='~A-input' size='20'><br><br>
+~A<br><br>
 <button class='w3-button w3-black' style='width:7em' id='~A-ok'>OK</button>
 <button class='w3-button w3-black' style='width:7em' id='~A-cancel'>Cancel</button>
 </form>
 </center>
-</div>" content
-        html-id  ; input
-	html-id  ; ok
-	html-id) ; cancel
+</div>"
+      content
+      inp
+      html-id  ; ok
+      html-id) ; cancel
 				  :top             top
 				  :left            left
 				  :width           width
@@ -1371,6 +1399,10 @@ Calls on-input with input box contents or nil if canceled."
 			       (when modal
 				 (window-end-modal win))
 			       (funcall on-input nil)))))
+
+;;;;;;;;;;;;;;;;;;;;
+;; confirm-dialog ;;
+;;;;;;;;;;;;;;;;;;;;
 
 (defun confirm-dialog (obj content on-input &key (modal t)
 					      (title "Confirm")
@@ -1434,6 +1466,10 @@ Calls on-input with t if confirmed or nil if canceled."
 			       (when modal
 				 (window-end-modal win))
 			       (funcall on-input nil)))))
+
+;;;;;;;;;;;;;;;;;
+;; form-dialog ;;
+;;;;;;;;;;;;;;;;;
 
 (defun form-dialog (obj content fields on-input &key (modal t)
 						  (title "Form")
@@ -1615,6 +1651,10 @@ if confirmed or nil if canceled."
 			       (when modal
 				 (window-end-modal win))
 			       (funcall on-input nil)))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;
+;; server-file-dialog ;;
+;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defun server-file-dialog (obj title initial-dir on-file-name
 			   &key (modal t)

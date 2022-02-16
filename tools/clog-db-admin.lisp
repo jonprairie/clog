@@ -1,6 +1,9 @@
-(defpackage #:clog-tools
-  (:use #:cl #:clog #:clog-gui)
-  (:export clog-db-admin))
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;; CLOG Data - Database tool for CLOG                                    ;;;;
+;;;; (c) 2020-2022 David Botton                                            ;;;;
+;;;; License BSD 3 Clause                                                  ;;;;
+;;;;                                                                       ;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (in-package :clog-tools)
 

@@ -1,11 +1,11 @@
 ;; In this tutorial we use clog-web to create a dynamic modern mobile
 ;; compatible web page using various clog-web containers.
 
-(defpackage #:clog-user
+(defpackage #:clog-tut-24
   (:use #:cl #:clog #:clog-web)
   (:export start-tutorial))
 
-(in-package :clog-user)
+(in-package :clog-tut-24)
 
 (defun on-new-window (body)
   (clog-web-initialize body)
@@ -98,11 +98,11 @@
 		     ";; This is a code block<br>
                       (defun start-tutorial ()<br>
                       \"Start turtorial.\"<br>
-                      (initialize #'on-new-window)<br>
+                      (initialize 'on-new-window)<br>
                       (open-browser))")
     (run body)))
 
 (defun start-tutorial ()
   "Start turtorial."
-  (initialize #'on-new-window)
+  (initialize 'on-new-window)
   (open-browser))

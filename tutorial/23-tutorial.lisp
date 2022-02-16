@@ -1,8 +1,8 @@
-(defpackage #:clog-user
+(defpackage #:clog-tut-23
   (:use #:cl #:clog #:clog-gui)
   (:export start-tutorial))
 
-(in-package :clog-user)
+(in-package :clog-tut-23)
 
 ;; This is a simple demo using semaphores to wait for user input
 ;; ask demonstrates the mechanics in general and the modal dialog
@@ -52,5 +52,5 @@
 
 (defun start-tutorial ()
   "Start turtorial."
-  (initialize #'on-new-window)
+  (initialize 'on-new-window)
   (open-browser))

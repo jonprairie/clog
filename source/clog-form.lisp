@@ -1,6 +1,6 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; CLOG - The Common Lisp Omnificent GUI                                 ;;;;
-;;;; (c) 2020-2021 David Botton                                            ;;;;
+;;;; (c) 2020-2022 David Botton                                            ;;;;
 ;;;; License BSD 3 Clause                                                  ;;;;
 ;;;;                                                                       ;;;;
 ;;;; clog-form.lisp                                                        ;;;;
@@ -15,16 +15,33 @@
 (defgeneric form-get-data (clog-obj)
   (:documentation "Get the form data as an a-list sent by the get method"))
 
-(defmethod form-get-data (clog-obj)
+(defmethod form-get-data ((obj clog-obj))
   (quri:uri-query-params
-   (quri:uri (clog-connection:query (connection-id clog-obj) "location.href"))))
+   (quri:uri (clog-connection:query (connection-id obj) "location.href"))))
 
 (defgeneric form-post-data (clog-obj)
   (:documentation "Get the form data as an a-list sent by post method"))
 
-(defmethod form-post-data (clog-obj)
+(defmethod form-post-data ((obj clog-obj))
   (quri:url-decode-params
-   (clog-connection:query (connection-id clog-obj) "clog['post-data']")))
+   (clog-connection:query (connection-id obj) "clog['post-data']")))
+
+(defgeneric form-multipart-data (clog-obj)
+  (:documentation "Get the form data as an a-list sent with the multipart
+method used in file uploads. DELETE-MULTIPART-DATA must be called or will
+never be GC'd. File upload items will be a four part list
+(name stream file-name content-type)."))
+
+(defmethod form-multipart-data ((obj clog-obj))
+  (clog-connection:get-connection-data
+   (parse-integer (caar (form-post-data obj)) :junk-allowed t)))
+
+(defgeneric delete-multipart-data (clog-obj)
+  (:documentation "Delete the multipart data upload"))
+
+(defmethod delete-multipart-data ((obj clog-obj))
+  (let ((id (parse-integer (caar (form-post-data obj)))))
+    (clog-connection:delete-connection-data id)))
 
 (defun form-data-item (form-data item)
   "Return value for ITEM from FROM-DATA a-list"
@@ -41,10 +58,11 @@
 ;; create-form ;;
 ;;;;;;;;;;;;;;;;;
 
-(deftype from-method-type () '(members :get :post :none))
+(deftype form-method-type () '(members :get :post :none))
 
 (defgeneric create-form (clog-obj
-			 &key action method target class html-id auto-place)
+			 &key action method target encoding
+			   class html-id auto-place)
   (:documentation "Create a new CLOG-Form as child of CLOG-OBJ that organizes
 a collection of form elements in to a single form if :AUTO-PLACE (default t)
 place-inside-bottom-of CLOG-OBJ. In CLOG a form's on-submit handler should be
@@ -52,25 +70,29 @@ set and the form element values handled in that handler as opposed to the
 HTML model of submitting to a new \"page\". If though one wishes to submit to
 another page can use the :ACTION :METHOD and :TARGET keys and either do not
 set an on-submit handler or call (submit CLOG-FORM) to perform the form
-action."))
+action. The default :ENCODING is application/x-www-form-urlencoded if
+doing file upload use multipart/form-data"))
 
 (defmethod create-form ((obj clog-obj)
 			&key (action "#")
 			  (method :none)
 			  (target "_self")
+			  (encoding "application/x-www-form-urlencoded")
 			  (class nil)
 			  (html-id nil)
 			  (auto-place t))
-  (create-child obj (format nil "<form action='~A' ~A target='~A'~A/>"
-			    action
-			    (if (eq method :none)
-				"onSubmit='return false;'"
-				(format nil "method='~A'" method))
-			    target
-			    (if class
-				(format nil " class='~A'"
-					(escape-string class))
-				""))
+  (create-child obj
+		(format nil "<form action='~A' ~A enctype='~A' target='~A'~A/>"
+			action
+			(if (eq method :none)
+			    "onSubmit='return false;'"
+			    (format nil "method='~A'" method))
+			encoding
+			target
+			(if class
+			    (format nil " class='~A'"
+				    (escape-string class))
+			    ""))
 		:clog-type 'clog-form :html-id html-id :auto-place auto-place))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;
@@ -117,7 +139,9 @@ action."))
   (:documentation "Set autocompletep for CLOG-FORM"))
 
 (defmethod set-autocompletep ((obj clog-form) autocompletep)
-  (setf (property obj "autocompletep") (p-on-js autocompletep)))
+  (if autocompletep
+      (setf (attribute obj "autocomplete") "true")
+      (remove-attribute obj "autocomplete")))
 (defsetf autocompletep set-autocompletep)
 
 ;;;;;;;;;;;;;;
@@ -154,7 +178,9 @@ action."))
   (:documentation "Set VALIDATE-ON-SUBMIT for CLOG-FORM"))
 
 (defmethod set-validate-on-submit ((obj clog-form) value)
-  (setf (property obj "noValidate") (p-true-js (not value))))
+  (if (not value)
+      (setf (attribute obj "noValidate") "true")
+      (remove-attribute obj "noValidate")))
 (defsetf validate-on-submit set-validate-on-submit)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -173,9 +199,10 @@ elements."))
   '(member  :button :checkbox :color :date :datetime :datetime-local :email
     :file :hidden :image :month :number :password :radio :range
     :reset :search :submit :tel :text :time :url :week))
-  
+
 (defgeneric create-form-element (clog-obj element-type
-				 &key name value label class html-id)
+				 &key name value label class
+				   hidden html-id)
   (:documentation "Create a new clog-form-element as child of CLOG-OBJ.
 It is importamt that clog-form-elements are a child or descendant of a
 clog-form in the DOM. The radio ELEMENT-TYPE groups by NAME."))
@@ -185,13 +212,17 @@ clog-form in the DOM. The radio ELEMENT-TYPE groups by NAME."))
 				  (value nil)
 				  (label nil)
 				  (class nil)
+				  (hidden nil)
 				  (html-id nil))
   (let ((element (create-child
-		  obj (format nil "<input type='~A'~A~A~A/>"
+		  obj (format nil "<input type='~A'~A~A~A~A/>"
 			      (escape-string element-type)
 			      (if class
 				  (format nil " class='~A'"
 					  (escape-string class))
+				  "")
+			      (if hidden
+				  " style='visibility:hidden;'"
 				  "")
 			      (if value
 				  (format nil " value='~A'" value)
@@ -220,7 +251,9 @@ clog-form in the DOM. The radio ELEMENT-TYPE groups by NAME."))
   (:documentation "Set autocomplete AUTOCOMPLETE for CLOG-FORM-ELEMENT"))
 
 (defmethod set-autocomplete ((obj clog-form-element) value)
-  (setf (property obj "autocomplete") value))
+  (if value
+      (setf (attribute obj "autocomplete") "true")
+      (remove-attribute obj "autocomplete")))
 (defsetf autocomplete set-autocomplete)
 
 ;;;;;;;;;;;;;;;;
@@ -229,7 +262,7 @@ clog-form in the DOM. The radio ELEMENT-TYPE groups by NAME."))
 
 (defgeneric autofocusp (clog-form-element)
   (:documentation "Get/Setf form element autofocusp. Only one element should
-have this set true. Autofocus on element when form loaded. "))
+have this set true ever. Autofocus on element when form loaded."))
 
 (defmethod autofocusp ((obj clog-form-element))
   (js-true-p (attribute obj "autofocus")))
@@ -274,7 +307,9 @@ have this set true. Autofocus on element when form loaded. "))
   (:documentation "Set disabledp DISABLEDP for CLOG-FORM-ELEMENT"))
 
 (defmethod set-disabledp ((obj clog-form-element) value)
-  (setf (property obj "disabled") (p-true-js value)))
+  (if value
+      (setf (attribute obj "disabled") "true")
+      (remove-attribute obj "disabled")))
 (defsetf disabledp set-disabledp)
 
 ;;;;;;;;;;;;;;;;;
@@ -291,7 +326,9 @@ have this set true. Autofocus on element when form loaded. "))
   (:documentation "Set read-only-p READ-ONLY-P for CLOG-FORM-ELEMENT"))
 
 (defmethod set-read-only-p ((obj clog-form-element) value)
-  (setf (property obj "readonly") (p-true-js value)))
+  (if value
+      (setf (attribute obj "readonly") "true")
+      (remove-attribute obj "readonly")))
 (defsetf read-only-p set-read-only-p)
 
 ;;;;;;;;;;;;;;;
@@ -308,8 +345,29 @@ have this set true. Autofocus on element when form loaded. "))
   (:documentation "Set requiredp REQUIREDP for CLOG-FORM-ELEMENT"))
 
 (defmethod set-requiredp ((obj clog-form-element) value)
-  (setf (property obj "required") (p-true-js value)))
+  (if value
+      (setf (attribute obj "required") "true")
+      (remove-attribute obj "required")))
 (defsetf requiredp set-requiredp)
+
+;;;;;;;;;;;;;;;
+;; multiplep ;;
+;;;;;;;;;;;;;;;
+
+(defgeneric multiplep (clog-form-element)
+  (:documentation "Get/Setf form element multiplep."))
+
+(defmethod multiplep ((obj clog-form-element))
+  (js-true-p (property obj "multiple")))
+
+(defgeneric set-multiplep (clog-form-element value)
+  (:documentation "Set multiplep MULTIPLEP for CLOG-FORM-ELEMENT"))
+
+(defmethod set-multiplep ((obj clog-form-element) value)
+  (if value
+      (setf (attribute obj "multiple") "true")
+      (remove-attribute obj "multiple")))
+(defsetf multiplep set-multiplep)
 
 ;;;;;;;;;;
 ;; name ;;
@@ -641,7 +699,9 @@ the File form element type.
   (:documentation "Set VALUE if checkedp for CLOG-FORM-ELEMENT"))
 
 (defmethod set-checkedp ((obj clog-form-element) value)
-  (setf (property obj "checked") (p-true-js value)))
+  (if value
+      (setf (attribute obj "checked") "true")
+      (remove-attribute obj "checked")))
 (defsetf checkedp set-checkedp)
 
 ;;;;;;;;;;;;;;;;
@@ -731,52 +791,6 @@ virtual keyboards."))
 				(format nil "<legend>~A</legend>" legend)
 				""))
 		:clog-type 'clog-fieldset :html-id html-id :auto-place t))
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; Implementation - clog-data-list
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-(defclass clog-data-list (clog-element)()
-  (:documentation "CLOG Form Element Data-List Options Object"));
-
-;;;;;;;;;;;;;;;;;;;;;;
-;; create-data-list ;;
-;;;;;;;;;;;;;;;;;;;;;;
-
-(defgeneric create-data-list (clog-obj &key data-list html-id)
-  (:documentation "Create a new clog-data-list as child of CLOG-OBJ and
-optionally fill in with contents of data-list."))
-
-(defmethod create-data-list ((obj clog-obj) &key (data-list nil) (html-id nil))
-  (let ((element (create-child obj "<datalist />"
-			       :clog-type  'clog-data-list
-			       :html-id    html-id
-			       :auto-place t)))
-    (when data-list
-      (add-options element data-list))
-    element))
-
-;;;;;;;;;;;;;;;;
-;; add-option ;;
-;;;;;;;;;;;;;;;;
-
-(defgeneric add-option (clog-data-list value)
-  (:documentation "Add option VALUE to data-list."))
-
-(defmethod add-option ((obj clog-data-list) value)
-  (create-child obj (format nil "<option value='~A'>" (escape-string value))
-		:clog-type 'clog-element :auto-place t))
-  
-;;;;;;;;;;;;;;;;;
-;; add-options ;;
-;;;;;;;;;;;;;;;;;
-
-(defgeneric add-options (clog-data-list data-list)
-  (:documentation "Add option VALUE to data-list."))
-
-(defmethod add-options ((obj clog-data-list) data-list)
-  (dolist (value data-list)
-    (add-option obj value)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Implementation - clog-text-area
@@ -895,6 +909,77 @@ optionally fill in with contents of data-list."))
   (setf (resizable obj) :none))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Implementation - clog-legend
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defclass clog-legend (clog-element)()
+  (:documentation "CLOG Fieldset Legend Object"));
+
+;;;;;;;;;;;;;;;;;;;
+;; create-legend ;;
+;;;;;;;;;;;;;;;;;;;
+
+(defgeneric create-legend (clog-obj &key content class html-id)
+  (:documentation "Create a new clog-legend as child of CLOG-OBJ."))
+
+(defmethod create-legend ((obj clog-obj) &key (content "")
+					     (class nil)
+					     (html-id nil))
+  (create-child obj (format nil "<legend~A>~A</legend>"
+			    (if class
+				(format nil " class='~A'"
+					(escape-string class))
+				"")
+			    content)
+		:clog-type 'clog-legend :html-id html-id :auto-place t))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Implementation - clog-data-list
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defclass clog-data-list (clog-element)()
+  (:documentation "CLOG Form Element Data-List Options Object"));
+
+;;;;;;;;;;;;;;;;;;;;;;
+;; create-data-list ;;
+;;;;;;;;;;;;;;;;;;;;;;
+
+(defgeneric create-data-list (clog-obj &key data-list html-id)
+  (:documentation "Create a new clog-data-list as child of CLOG-OBJ and
+optionally fill in with contents of data-list."))
+
+(defmethod create-data-list ((obj clog-obj) &key (data-list nil) (html-id nil))
+  (let ((element (create-child obj "<datalist />"
+			       :clog-type  'clog-data-list
+			       :html-id    html-id
+			       :auto-place t)))
+    (when data-list
+      (add-options element data-list))
+    element))
+
+;;;;;;;;;;;;;;;;
+;; add-option ;;
+;;;;;;;;;;;;;;;;
+
+(defgeneric add-option (clog-data-list value)
+  (:documentation "Add option VALUE to data-list."))
+
+(defmethod add-option ((obj clog-data-list) value)
+  (create-child obj (format nil "<option value='~A'>" (escape-string value))
+		:clog-type 'clog-element :auto-place t))
+
+;;;;;;;;;;;;;;;;;
+;; add-options ;;
+;;;;;;;;;;;;;;;;;
+
+(defgeneric add-options (clog-data-list data-list)
+  (:documentation "Add option VALUE to data-list."))
+
+(defmethod add-options ((obj clog-data-list) data-list)
+  (dolist (value data-list)
+    (add-option obj value)))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Implementation - clog-select
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -943,24 +1028,37 @@ optionally fill in with contents of data-list."))
 			    (escape-string value)
 			    (escape-string content))
 		:clog-type 'clog-element :auto-place t))
-  
+
 ;;;;;;;;;;;;;;;;;;;;;;;;
 ;; add-select-options ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defgeneric add-select-options (clog-select select)
+(defgeneric add-select-options (clog-select content)
   (:documentation "Add group of options to select."))
 
-(defmethod add-select-options ((obj clog-select) select)
-  (dolist (value select)
+(defmethod add-select-options ((obj clog-select) content)
+  (dolist (value content)
     (add-select-option obj value value)))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;
+;; add-select-optgroup ;;
+;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defgeneric add-select-optgroup (clog-select content)
+  (:documentation "Add option VALUE to select."))
+
+(defmethod add-select-optgroup ((obj clog-select) content)
+  (create-child obj (format nil "<optgroup label='~A'/>"
+			    (escape-string content))
+		:clog-type 'clog-element :auto-place t))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Implementation - clog-option
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defclass clog-option (clog-form-element)()
-  (:documentation "CLOG Form Element Option for CLOG Select Object"));
+  (:documentation "CLOG Form Element Option for CLOG Select Object
+or CLOG Data-List objects."));
 
 ;;;;;;;;;;;;;;;;;;;
 ;; create-option ;;
@@ -976,7 +1074,7 @@ optionally fill in with contents of data-list."))
 					   (selected nil)
 					   (disabled nil)
 					   (class nil)
-					   (html-id nil))			  			  
+					   (html-id nil))
   (create-child obj (format nil "<option~A~A~A~A>~A</option>"
 			    (if selected
 				" selected"
@@ -990,7 +1088,7 @@ optionally fill in with contents of data-list."))
 			    (if class
 				(format nil " class='~A'"
 					(escape-string class))
-				"")			    
+				"")
 			    content)
 		:clog-type 'clog-option :html-id html-id :auto-place t))
 
@@ -1028,7 +1126,7 @@ optionally fill in with contents of data-list."))
 (defmethod create-optgroup ((obj clog-obj) &key (content "")
 					     (disabled nil)
 					     (class nil)
-					     (html-id nil))			  			  
+					     (html-id nil))
   (create-child obj (format nil "<optgroup label='~A'~A~A/>"
 			    content
 			    (if class

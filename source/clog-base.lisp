@@ -1,6 +1,6 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; CLOG - The Common Lisp Omnificent GUI                                 ;;;;
-;;;; (c) 2020-2021 David Botton                                            ;;;;
+;;;; (c) 2020-2022 David Botton                                            ;;;;
 ;;;; License BSD 3 Clause                                                  ;;;;
 ;;;;                                                                       ;;;;
 ;;;; clog-base.lisp                                                        ;;;;
@@ -13,6 +13,8 @@
 ;;; This includes properties, methods and events. Each clog-obj also has
 ;;; methods to retrieve connection-data (data that is associated with the
 ;;; current page regardless of object or thread of execution is lisp).
+
+(push :clog *features*)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Implementation - clog-obj
@@ -78,10 +80,12 @@ during attachment. (Private)"))
 ;;;;;;;;;;;;;;;;
 
 (defgeneric js-execute (clog-obj script)
-  (:documentation "Execure SCRIPT on browser. (Internal)"))
+  (:documentation "Execure SCRIPT on browser. Result is
+dicarded, return CLOG-OBJ. (Internal)"))
 
 (defmethod js-execute ((obj clog-obj) script)
-  (clog-connection:execute (connection-id obj) script))
+  (clog-connection:execute (connection-id obj) script)
+  obj)
 
 ;;;;;;;;;;;;;;
 ;; js-query ;;
@@ -109,7 +113,7 @@ during attachment. (Private)"))
 
 (defgeneric jquery-execute (clog-obj method)
   (:documentation "Execute the jquery METHOD on OBJ. Result is
-dicarded. (Private)"))
+dicarded, return CLOG-OBJ. (Private)"))
 
 (defmethod jquery-execute ((obj clog-obj) method)
   (js-execute obj (format nil "~A.~A" (jquery obj) method)))
@@ -180,7 +184,7 @@ result or if time out DEFAULT-ANSWER (Private)"))
        (e.clientX - e.currentTarget.getBoundingClientRect().left + e.currentTarget.scrollLeft) : 0) + ':' + 
      (e.currentTarget.getBoundingClientRect ?
        (e.clientY - e.currentTarget.getBoundingClientRect().top + e.currentTarget.scrollTop) : 0) + ':' + 
-     e.screenX + ':' + e.screenY + ':' + e.which + ':' + e.altKey + ':' +
+  e.screenX + ':' + e.screenY + ':' + e.which + ':' + e.altKey + ':' +
      e.ctrlKey + ':' + e.shiftKey + ':' + e.metaKey + ':' +
      e.clientX + ':' + e.clientY + ':' + e.pageX + ':' + e.pageY + ':' + e.clientX + ':' + e.clientY"
   "JavaScript to collect mouse event data from browser.")
@@ -217,10 +221,10 @@ result or if time out DEFAULT-ANSWER (Private)"))
 (defparameter touch-event-script
   "+ (e.touches[0].clientX -
         e.touches[0].currentTarget.getBoundingClientRect().left +
-        e.touches[0].currentTarget.scrollLeft) + ':' + 
+        e.touches[0].currentTarget.scrollLeft) + ':' +
      (e.touches[0].clientY -
         e.touches[0].currentTarget.getBoundingClientRect().top +
-        e.touches[0].currentTarget.scrollTop) + ':' + 
+        e.touches[0].currentTarget.scrollTop) + ':' +
      e.touches[0].screenX + ':' + e.touches[0].screenY + ':' + e.touches.length + ':' +
      e.altKey + ':' +
      e.ctrlKey + ':' +
@@ -253,8 +257,8 @@ result or if time out DEFAULT-ANSWER (Private)"))
 ;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defparameter pointer-event-script
-  "+ (e.clientX - e.currentTarget.getBoundingClientRect().left + e.currentTarget.scrollLeft) + ':' + 
-     (e.clientY - e.currentTarget.getBoundingClientRect().top + e.currentTarget.scrollTop) + ':' + 
+  "+ (e.clientX - e.currentTarget.getBoundingClientRect().left + e.currentTarget.scrollLeft) + ':' +
+     (e.clientY - e.currentTarget.getBoundingClientRect().top + e.currentTarget.scrollTop) + ':' +
      e.screenX + ':' + e.screenY + ':' + e.which + ':' + e.altKey + ':' +
      e.ctrlKey + ':' + e.shiftKey + ':' + e.metaKey + ':' +
      e.clientX + ':' + e.clientY + ':' + e.pageX + ':' + e.pageY"
@@ -307,8 +311,9 @@ result or if time out DEFAULT-ANSWER (Private)"))
 ;;;;;;;;;;;;;;;;;;;;;;
 
 (defparameter drop-event-script
-  "+ (e.clientX - e.currentTarget.getBoundingClientRect().left + e.currentTarget.scrollLeft) + ':' + 
-     (e.clientY - e.currentTarget.getBoundingClientRect().top + e.currentTarget.scrollTop + ':' +
+  "+ (e.clientX - e.currentTarget.getBoundingClientRect().left + e.currentTarget.scrollLeft) + ':' +
+     (e.clientY - e.currentTarget.getBoundingClientRect().top + e.currentTarget.scrollTop) + ':' +
+     e.which + ':' + e.altKey + ':' + e.ctrlKey + ':' + e.shiftKey + ':' + e.metaKey + ':' +
      encodeURIComponent(e.originalEvent.dataTransfer.getData('~A'))"
   "JavaScript to collect drop event data from browser.")
 
@@ -318,7 +323,12 @@ result or if time out DEFAULT-ANSWER (Private)"))
      :event-type   :drop
      :x            (parse-integer (nth 0 f) :junk-allowed t)
      :y            (parse-integer (nth 1 f) :junk-allowed t)
-     :drag-data    (quri:url-decode (or (nth 2 f) "")))))
+     :which-button (parse-integer (nth 2 f) :junk-allowed t)
+     :alt-key      (js-true-p (nth 3 f))
+     :ctrl-key     (js-true-p (nth 4 f))
+     :shift-key    (js-true-p (nth 5 f))
+     :meta-key     (js-true-p (nth 6 f))
+     :drag-data    (quri:url-decode (or (nth 7 f) "")))))
 
 ;;;;;;;;;;;;;;;
 ;; set-event ;;
@@ -374,7 +384,8 @@ result or if time out DEFAULT-ANSWER (Private)"))
   (:documentation "Set html property."))
 
 (defmethod set-property ((obj clog-obj) property-name value)
-  (jquery-execute obj (format nil "prop('~A','~A')" property-name (escape-string value))))
+  (jquery-execute obj (format nil "prop('~A','~A')" property-name (escape-string value)))
+  value)
 (defsetf property set-property)
 
 ;;;;;;;;;;;;
@@ -391,7 +402,8 @@ result or if time out DEFAULT-ANSWER (Private)"))
   (:documentation "Set height VALUE for CLOG-OBJ"))
 
 (defmethod set-height ((obj clog-obj) value)
-  (jquery-execute obj (format nil "height('~A')" (escape-string value))))
+  (jquery-execute obj (format nil "height('~A')" (escape-string value)))
+  value)
 (defsetf height set-height)
 
 ;;;;;;;;;;;
@@ -408,7 +420,8 @@ result or if time out DEFAULT-ANSWER (Private)"))
   (:documentation "Set width VALUE for CLOG-OBJ"))
 
 (defmethod set-width ((obj clog-obj) value)
-  (jquery-execute obj (format nil "width('~A')" (escape-string value))))
+  (jquery-execute obj (format nil "width('~A')" (escape-string value)))
+  value)
 (defsetf width set-width)
 
 ;;;;;;;;;;;
@@ -451,10 +464,40 @@ clog-obj that will persist regardless of thread. The event hooks
 are stored in this string based hash in the format of:
 \"html-id:event-name\" => #'event-handler. clog-* keys are reserved
 for internal use of clog. The key \"clog-body\" is set to the
-clog-body of this connection."))
+clog-body of this connection and accessible with CONNECTION-BODY."))
 
 (defmethod connection-data ((obj clog-obj))
   (clog-connection:get-connection-data (connection-id obj)))
+
+;;;;;;;;;;;;;;;;;;;;;
+;; connection-body ;;
+;;;;;;;;;;;;;;;;;;;;;
+
+(defgeneric connection-body (clog-obj)
+  (:documentation "Get connection's clog-body."))
+
+(defmethod connection-body (clog-obj)
+  (connection-data-item clog-obj "clog-body"))
+
+;;;;;;;;;;;;;;;;;;;;;
+;; connection-sync ;;
+;;;;;;;;;;;;;;;;;;;;;
+
+(defgeneric connection-sync (clog-obj)
+  (:documentation "Get connection's clog-sync for optional syncing events."))
+
+(defmethod connection-sync (clog-obj)
+  (connection-data-item clog-obj "clog-sync"))
+
+;;;;;;;;;;;;;;;;;;;;;
+;; with-sync-event ;;
+;;;;;;;;;;;;;;;;;;;;;
+
+(defmacro with-sync-event ((clog-obj) &body body)
+  "Place at start of event to serialize access to the event. All events in
+an application share per connection the same queue of serialized events."
+  `(bordeaux-threads:with-lock-held (,`(connection-sync ,clog-obj))
+     ,@body))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; connection-data-item ;;
@@ -471,7 +514,8 @@ clog-body of this connection."))
 
 (defmethod set-connection-data-item ((obj clog-obj) item-name value)
   (bordeaux-threads:with-lock-held ((connection-data-mutex obj))
-    (setf (gethash item-name (connection-data obj)) value)))
+    (setf (gethash item-name (connection-data obj)) value))
+  value)
 (defsetf connection-data-item set-connection-data-item)
 
 (defgeneric remove-connection-data-item (clog-obj item-name)
@@ -671,7 +715,7 @@ If ON-FOCUS-OUT-HANDLER is nil unbind the event."))
 (defgeneric set-on-reset (clog-obj on-reset-handler)
   (:documentation "Set the ON-RESET-HANDLER for CLOG-OBJ. If ON-RESET-HANDLER
 is nil unbind the event. This event is activated by using reset on a form. If
-this even is bound, you must call the form reset manually."))
+this event is bound, you must call the form reset manually."))
 
 (defmethod set-on-reset ((obj clog-obj) handler)
   (set-event obj "reset"
@@ -879,16 +923,18 @@ is nil unbind the event."))
 ;; set-on-mouse-down ;;
 ;;;;;;;;;;;;;;;;;;;;;;;
 
-(defgeneric set-on-mouse-down (clog-obj on-mouse-down-handler &key one-time)
+(defgeneric set-on-mouse-down (clog-obj on-mouse-down-handler &key one-time cancel-event)
   (:documentation "Set the ON-MOUSE-DOWN-HANDLER for CLOG-OBJ. If
-ON-MOUSE-DOWN-HANDLER is nil unbind the event."))
+ON-MOUSE-DOWN-HANDLER is nil unbind the event. If cancel-event is true event
+does not bubble."))
 
-(defmethod set-on-mouse-down ((obj clog-obj) handler &key (one-time nil))
+(defmethod set-on-mouse-down ((obj clog-obj) handler &key (one-time nil) (cancel-event nil))
   (set-event obj "mousedown"
 	     (when handler
 	       (lambda (data)
 		 (funcall handler obj (parse-mouse-event data))))
 	     :one-time one-time
+	     :cancel-event cancel-event
 	     :call-back-script mouse-event-script))
 
 ;;;;;;;;;;;;;;;;;;;;;
@@ -970,12 +1016,13 @@ is nil unbind the event."))
 ;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defgeneric set-on-pointer-down (clog-obj on-pointer-down-handler
-				 &key capture-pointer one-time)
+				 &key capture-pointer one-time cancel-event)
   (:documentation "Set the ON-POINTER-DOWN-HANDLER for CLOG-OBJ. If
-ON-POINTER-DOWN-HANDLER is nil unbind the event."))
+ON-POINTER-DOWN-HANDLER is nil unbind the event. If cancel event is t the
+even does not bubble."))
 
 (defmethod set-on-pointer-down ((obj clog-obj) handler
-				&key (capture-pointer nil) (one-time nil))
+				&key (capture-pointer nil) (one-time nil) (cancel-event nil))
   (set-event obj "pointerdown"
 	     (when handler
 	       (lambda (data)
@@ -985,6 +1032,7 @@ ON-POINTER-DOWN-HANDLER is nil unbind the event."))
 				    (script-id obj))
 			    "")
 	     :one-time one-time
+	     :cancel-event cancel-event
 	     :call-back-script pointer-event-script))
 
 ;;;;;;;;;;;;;;;;;;;;;;;
@@ -1120,7 +1168,7 @@ If ON-KEY-DOWN-HANDLER is nil unbind the event."))
 		 (funcall handler obj (parse-keyboard-event data))))
 	     :one-time one-time
 	     :cancel-event disable-default
-	     :call-back-script keyboard-event-script))   
+	     :call-back-script keyboard-event-script))
 
 ;;;;;;;;;;;;;;;;;;;
 ;; set-on-key-up ;;
@@ -1136,7 +1184,7 @@ ON-KEY-UP-HANDLER is nil unbind the event."))
 	       (lambda (data)
 		 (funcall handler obj (parse-keyboard-event data))))
 	     :one-time one-time
-	     :call-back-script keyboard-event-script))      
+	     :call-back-script keyboard-event-script))
 
 ;;;;;;;;;;;;;;;;;;;;;;
 ;; set-on-key-press ;;

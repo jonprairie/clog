@@ -8,11 +8,11 @@
 ;;;; completely flexible in how you choose to use it.
 
 
-(defpackage #:clog-user
+(defpackage #:clog-tut-26
   (:use #:cl #:clog #:clog-web)
   (:export start-tutorial))
 
-(in-package :clog-user)
+(in-package :clog-tut-26)
 
 (defun on-new-window (body)
   (clog-web-initialize body)
@@ -99,7 +99,7 @@
 (defun start-tutorial ()
   "Start turtorial."
   ;; We would probably set :host to my IP and :port 80 here if running a live site
-  (initialize #'on-new-window)
+  (initialize 'on-new-window)
   ;; In real life, if we openning a browser here it would likely be
   ;; to a page with a monitor of system etc. since it is local.
   (open-browser))

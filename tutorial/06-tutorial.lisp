@@ -1,8 +1,8 @@
-(defpackage #:clog-user
+(defpackage #:clog-tut-6
   (:use #:cl #:clog)
   (:export start-tutorial))
 
-(in-package :clog-user)
+(in-package :clog-tut-6)
 
 (defun my-on-click (obj)
   (print "Event thread started")                    ; Every click will add a thread
@@ -28,10 +28,10 @@
   "On-new-window handler."
   (setf (title (html-document body)) "Tutorial 6")
   (set-on-click (create-section body :h1 :content "(click me to start!)")
-		#'my-on-click)
+		'my-on-click)
   (run body))
 
 (defun start-tutorial ()
   "Start turtorial."
-  (initialize #'on-new-window)
+  (initialize 'on-new-window)
   (open-browser))

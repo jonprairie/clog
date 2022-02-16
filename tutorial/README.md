@@ -10,17 +10,10 @@ To load "clog":
 (:CLOG)
 ```
 
-Load the tutorial:
+Run the tutorial:
 
 ```
-CL-USER> (load "/Users/dbotton/common-lisp/clog/tutorial/01-tutorial.lisp")
-#P"/Users/dbotton/common-lisp/clog/tutorial/01-tutorial.lisp"
-```
-
-Start the tutorial:
-
-```
-CL-USER> (clog-user:start-tutorial)
+CL-USER> (clog:run-tutorial 1)
 Hunchentoot server is started.
 Listening on 0.0.0.0:8080.
 HTTP listening on : 0.0.0.0:8080
@@ -60,3 +53,5 @@ Tutorial Summary
 - 25-tutorial.lisp - A "local" web app using CLOG WEB
 - 26-tutorial.lisp - A web page and form with CLOG WEB
 - 27-tutorial.lisp - Panel Box Layouts
+- 28-tutorial.lisp - CLOG Builder Hello - A minimalist CLOG Builder project
+- 29-tutorial.lisp - Presentations - linking lisp objects to clog objects

@@ -1,8 +1,8 @@
-(defpackage #:clog-user
+(defpackage #:clog-tut-10
   (:use #:cl #:clog)
   (:export start-tutorial))
 
-(in-package :clog-user)
+(in-package :clog-tut-10)
 
 ;;; A very brief example of using the canvas control.
 (defun on-new-window (body)
@@ -24,5 +24,5 @@
 
 (defun start-tutorial ()
   "Start turtorial."
-  (initialize #'on-new-window)
+  (initialize 'on-new-window)
   (open-browser))

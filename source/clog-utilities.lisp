@@ -1,6 +1,6 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; CLOG - The Common Lisp Omnificent GUI                                 ;;;;
-;;;; (c) 2020-2021 David Botton                                            ;;;;
+;;;; (c) 2020-2022 David Botton                                            ;;;;
 ;;;; License BSD 3 Clause                                                  ;;;;
 ;;;;                                                                       ;;;;
 ;;;; clog-utilities.lisp                                                   ;;;;
@@ -8,6 +8,17 @@
 
 (cl:in-package :clog)
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Implementation - make-hash-table*
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defun make-hash-table* (&rest args)
+  "Use native concurrent hash tables"
+  ;; This covers sbcl ecl mazzano lw and ccl.
+  ;; (lw and ccl default hash is synchronized)
+  #+(or sbcl ecl mezzano)
+  (apply #'make-hash-table :synchronized t args)
+  #-(or sbcl ecl mezzano) (apply #'make-hash-table args))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Implementation - clog-group
@@ -16,11 +27,11 @@
 (defclass clog-group ()
   ((controls
    :accessor controls
-   :initform (make-hash-table :test 'equalp))))
+   :initform (make-hash-table* :test 'equalp))))
 
 (defun create-group ()
   "Return a new CLOG-GROUP object for storing CLOG-OBJs. They are indexed by
-their HTML-ID."
+their HTML-ID or an arbitrary NAME."
   (make-instance 'clog-group))
 
 (defgeneric add (clog-group clog-obj &key name)
@@ -181,7 +192,7 @@ alpha 0.0 - 1.0"
 ;; linear-gradient(direction, color-stop1, color-stop2, ...);
 ;; radial-gradient(shape size at position, start-color, ..., last-color);
 ;; repeating-linear-gradient(angle | to side-or-corner, color-stop1, color-stop2, ...);
-;; epeating-radial-gradient(shape size at position, start-color, ..., last-color);
+;; repeating-radial-gradient(shape size at position, start-color, ..., last-color);
 ;;
 ;;
 ;; The following list are the best web safe fonts for HTML and CSS:

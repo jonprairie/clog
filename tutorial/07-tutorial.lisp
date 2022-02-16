@@ -1,8 +1,8 @@
-(defpackage #:clog-user
+(defpackage #:clog-tut-7
   (:use #:cl #:clog)
   (:export start-tutorial))
 
-(in-package :clog-user)
+(in-package :clog-tut-7)
 
 (defun on-click (obj)
   (setf (text obj) "DEAD")
@@ -34,7 +34,7 @@
 			     (set-bounds))))
 	  ;; Setup our "mover". Darth
 	  (setf (positioning mover) :fixed)
-	  (set-on-click mover #'on-click)
+	  (set-on-click mover 'on-click)
 	  ;; Get Darth moving!
 	  (bordeaux-threads:make-thread    ; In addtion to the main task (the on-new-window)
 	   (lambda ()                      ; and the task created for each event like clicks
@@ -80,5 +80,5 @@
 
 (defun start-tutorial ()
   "Start turtorial."
-  (initialize #'on-new-window)
+  (initialize 'on-new-window)
   (open-browser))

@@ -13,7 +13,7 @@
 ;; Implementation - CLOG System
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defvar *url-to-on-new-window* (make-hash-table :test 'equalp)
+(defvar *url-to-on-new-window* (make-hash-table* :test 'equalp)
   "URL to on-new-window handlers (private)")
 
 (defvar *clog-running* nil "If clog running.")
@@ -22,6 +22,9 @@
   "Override the static-root settings. This is not normally a good idea, but if
 trying to run the tutorials or demos and unable to have your local directory
 the same as the clog directy this overides the relative paths used in them.")
+
+(defvar *static-root* nil
+  "Contains the static-root setting after initialization.")
 
 ;;;;;;;;;;;;;;;;
 ;; initialize ;;
@@ -38,6 +41,7 @@ the same as the clog directy this overides the relative paths used in them.")
       (if on-new-window
 	  (progn
 	    (setf (connection-data-item body "clog-body") body)
+	    (setf (connection-data-item body "clog-sync") (bordeaux-threads:make-lock))
 	    (funcall on-new-window body))
 	  (put-br (html-document body) "No route to on-new-window")))))
 
@@ -54,23 +58,26 @@ the same as the clog directy this overides the relative paths used in them.")
 as the default route to establish web-socket connections and static
 files located at STATIC-ROOT. If CLOG was already initialized and not
 shut down, this function does the same as set-on-new-window (does not
-change the static-root). STATIC-ROOT by default is the \"directory CLOG
+change the static-root). If ON-NEW-WINDOW-HANDLER is nil no handler is
+set and none is removed. STATIC-ROOT by default is the \"directory CLOG
 is installed in ./static-files\" If the variable clog:*overide-static-root*
 is set STATIC-ROOT will be ignored. If BOOT-FILE is nil no default
 boot-file will be set for root path, i.e. /. If static-boot-js is t
 then boot.js is served from the file /js/boot.js instead of the
 compiled version."
-  (set-on-new-window on-new-window-handler :path "/" :boot-file boot-file)
+  (when on-new-window-handler
+    (set-on-new-window on-new-window-handler :path "/" :boot-file boot-file))
   (unless *clog-running*
     (setf *clog-running* t)
+    (setf *static-root* (if *overide-static-root*
+			    *overide-static-root*
+			    static-root))
     (clog-connection:initialize #'on-connect
 				:host           host
 				:port           port
 				:boot-file      boot-file
 				:static-boot-js static-boot-js
-				:static-root    (if *overide-static-root*
-						    *overide-static-root*
-						    static-root))))
+				:static-root    *static-root*)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;
 ;; set-on-new-window ;;
@@ -111,7 +118,7 @@ function. If BOOT-FILE is nil path is removed."
 ;;;;;;;;;;;;;;;;;;
 
 (defun open-browser (&key (url "http://127.0.0.1:8080"))
-  "Launch on os a web browser on local machine to URL. See BROWSER-OPEN
+  "Launch on os a web browser on local machine to URL. See OPEN-WINDOW
 for openning windows on remote machines."
   (handler-case
       (trivial-open-browser:open-browser url)
