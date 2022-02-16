@@ -176,11 +176,13 @@ result or if time out DEFAULT-ANSWER (Private)"))
 ;;;;;;;;;;;;;;;;;;;;;;;
 
 (defparameter mouse-event-script
-  "+ (e.clientX - e.currentTarget.getBoundingClientRect().left + e.currentTarget.scrollLeft) + ':' + 
-     (e.clientY - e.currentTarget.getBoundingClientRect().top + e.currentTarget.scrollTop) + ':' + 
+  "+ (e.currentTarget.getBoundingClientRect ?
+       (e.clientX - e.currentTarget.getBoundingClientRect().left + e.currentTarget.scrollLeft) : 0) + ':' + 
+     (e.currentTarget.getBoundingClientRect ?
+       (e.clientY - e.currentTarget.getBoundingClientRect().top + e.currentTarget.scrollTop) : 0) + ':' + 
      e.screenX + ':' + e.screenY + ':' + e.which + ':' + e.altKey + ':' +
      e.ctrlKey + ':' + e.shiftKey + ':' + e.metaKey + ':' +
-     e.clientX + ':' + e.clientY + ':' + e.pageX + ':' + e.pageY"
+     e.clientX + ':' + e.clientY + ':' + e.pageX + ':' + e.pageY + ':' + e.clientX + ':' + e.clientY"
   "JavaScript to collect mouse event data from browser.")
 ;; e.buttons would be better but not supported currently outside
 ;; of firefox and would always return 0 on Mac so using e.which.
@@ -203,7 +205,10 @@ result or if time out DEFAULT-ANSWER (Private)"))
      :client-x     (parse-integer (nth 9 f) :junk-allowed t)
      :client-Y     (parse-integer (nth 10 f) :junk-allowed t)
      :page-x       (parse-integer (nth 11 f) :junk-allowed t)
-     :page-Y       (parse-integer (nth 12 f) :junk-allowed t))))
+     :page-Y       (parse-integer (nth 12 f) :junk-allowed t)
+     :client-x     (parse-integer (nth 13 f) :junk-allowed t)
+     :client-y     (parse-integer (nth 14 f) :junk-allowed t)
+     )))
 
 ;;;;;;;;;;;;;;;;;;;;;;;
 ;; parse-touch-event ;;
